@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendamento - Clínica Veterinária</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>Agendamento para Clínica Veterinária</h1>
+    
+    {% if erro %}
+        <p class="error-message">{{ erro }}</p>
+    {% endif %}
+
+    <form action="/agendar" method="post">
+        <label for="nome_dono">Nome do Dono:</label>
+        <input type="text" id="nome_dono" name="nome_dono" required>
+        
+        <label for="nome_pet">Nome do Pet:</label>
+        <input type="text" id="nome_pet" name="nome_pet" required>
+        
+        <label for="especie">Espécie:</label>
+        <select id="especie" name="especie" required>
+            <option value="Cachorro">Cachorro</option>
+            <option value="Gato">Gato</option>
+        </select>
+        
+        <label for="sexo">Sexo:</label>
+        <select id="sexo" name="sexo" required>
+            <option value="Macho">Macho</option>
+            <option value="Fêmea">Fêmea</option>
+        </select>
+        
+        <label for="telefone">Telefone (DDD):</label>
+        <input type="tel" id="telefone" name="telefone" placeholder="(XX) XXXXX-XXXX ou XXXXXXXXXXX" pattern="^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$" title="Use o formato (XX) XXXXX-XXXX ou XXXXXXXXXXX" required>
+        
+        <label for="data">Data e Hora:</label>
+        <input type="datetime-local" id="data" name="data" required>
+        
+        <label for="servico">Serviço:</label>
+        <select id="servico" name="servico" required>
+            <option value="Consulta">Consulta</option>
+        </select>
+        
+        <label for="doutora">Doutora:</label>
+        <select id="doutora" name="doutora" required>
+            <option value="Doutora 1">Doutora 1</option>
+            <option value="Doutora 2">Doutora 2</option>
+        </select>
+        
+        <label for="motivo">Motivo da Consulta:</label>
+        <textarea id="motivo" name="motivo" placeholder="Descreva o motivo da consulta..." required></textarea>
+        
+        <button type="submit">Agendar</button>
+    </form>
+    
+    <p>Após agendar, você será redirecionado. Para acessar o painel, vá para <a href="/painel">/painel</a>.</p>
+</body>
+</html>

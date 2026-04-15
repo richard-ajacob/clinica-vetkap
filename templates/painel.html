@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Veterinário - Clínica Veterinária</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>Painel de {{ doctor }}</h1>
+    <a href="/logout" class="logout">Sair</a>
+    
+    {% if role == 'reception' %}
+        <h2>Agendamentos</h2>
+        <p>Mostrando todos os agendamentos.</p>
+    {% else %}
+        <h2>Agendamentos</h2>
+        <p>Mostrando apenas os agendamentos de {{ doctor }}.</p>
+    {% endif %}
+    <ul>
+        {% if not agendamentos %}
+            <li>Nenhum agendamento para {{ doctor }} no momento.</li>
+        {% endif %}
+        {% for agendamento in agendamentos %}
+        <li>
+            <div>
+                <strong>{{ agendamento.nome_pet }}</strong> ({{ agendamento.especie }}, {{ agendamento.sexo }}) - (Dono: {{ agendamento.nome_dono }}) - {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }} - {{ agendamento.servico }} - {{ agendamento.doutora }}<br>
+                <em>Motivo:</em> {{ agendamento.motivo }}<br>
+                <em>Telefone:</em> {{ agendamento.telefone }}
+            </div>
+            <form action="/deletar/{{ agendamento.id }}" method="post" style="display: inline;">
+                <button type="submit">Deletar</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    
+    <p><a href="/cliente">Voltar para agendamento</a></p>
+</body>
+</html>

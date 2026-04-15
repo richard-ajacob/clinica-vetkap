@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta Agendada</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>Consulta marcada com sucesso!</h1>
+    <div class="card">
+        <p><strong>Data e hora:</strong> {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }}</p>
+        <p><strong>Doutora:</strong> {{ agendamento.doutora }}</p>
+        <p><strong>Pet:</strong> {{ agendamento.nome_pet }} ({{ agendamento.especie }}, {{ agendamento.sexo }})</p>
+        <p><strong>Telefone:</strong> {{ agendamento.telefone }}</p>
+        <p><strong>Motivo:</strong> {{ agendamento.motivo }}</p>
+    </div>
+    <br>
+    <a href="/cliente" class="button">Voltar para a página inicial</a>
+</body>
+</html>
