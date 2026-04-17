@@ -17,23 +17,107 @@
         <h2>Agendamentos</h2>
         <p>Mostrando apenas os agendamentos de {{ doctor }}.</p>
     {% endif %}
+
+    <form action="/painel" method="get" class="filter-form">
+        <div class="filter-grid">
+            <div>
+                <label for="nome">Nome do tutor ou pet:</label>
+                <input type="text" id="nome" name="nome" value="{{ filtros.nome }}" placeholder="Digite um nome">
+            </div>
+            <div>
+                <label for="data">Data:</label>
+                <input type="date" id="data" name="data" value="{{ filtros.data }}">
+            </div>
+            <div>
+                <label for="doutora">Doutora:</label>
+                <select id="doutora" name="doutora" {% if role != 'reception' %}disabled{% endif %}>
+                    {% if role == 'reception' %}
+                        <option value="">Todas</option>
+                    {% endif %}
+                    {% for option in doctor_options %}
+                        <option value="{{ option }}" {% if filtros.doutora == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+                {% if role != 'reception' %}
+                    <input type="hidden" name="doutora" value="{{ filtros.doutora }}">
+                {% endif %}
+            </div>
+            <div>
+                <label for="servico">Serviço:</label>
+                <select id="servico" name="servico">
+                    <option value="">Todos</option>
+                    {% for option in service_options %}
+                        <option value="{{ option }}" {% if filtros.servico == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="especie">Espécie:</label>
+                <select id="especie" name="especie">
+                    <option value="">Todas</option>
+                    {% for option in especie_options %}
+                        <option value="{{ option }}" {% if filtros.especie == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="sexo">Sexo:</label>
+                <select id="sexo" name="sexo">
+                    <option value="">Todos</option>
+                    {% for option in sexo_options %}
+                        <option value="{{ option }}" {% if filtros.sexo == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Filtrar</button>
+            <a href="/painel" class="button secondary-button">Limpar filtros</a>
+        </div>
+    </form>
+
+    {% if filtro_erro %}
+        <p class="error-message">{{ filtro_erro }}</p>
+    {% endif %}
+
+    {% if paginacao.total > 0 %}
+        <p class="pagination-summary">
+            Página {{ paginacao.page }} de {{ paginacao.pages }} - {{ paginacao.total }} agendamento(s) encontrado(s).
+        </p>
+    {% endif %}
+
     <ul>
         {% if not agendamentos %}
-            <li>Nenhum agendamento para {{ doctor }} no momento.</li>
+            <li>Nenhum agendamento encontrado com os filtros selecionados.</li>
         {% endif %}
         {% for agendamento in agendamentos %}
         <li>
             <div>
-                <strong>{{ agendamento.nome_pet }}</strong> ({{ agendamento.especie }}, {{ agendamento.sexo }}) - (Dono: {{ agendamento.nome_dono }}) - {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }} - {{ agendamento.servico }} - {{ agendamento.doutora }}<br>
+                <strong>{{ agendamento.nome_pet }}</strong> ({{ agendamento.especie }}, {{ agendamento.sexo }}) - (Tutor: {{ agendamento.nome_dono }}) - {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }} - {{ agendamento.servico }} - {{ agendamento.doutora }}<br>
                 <em>Motivo:</em> {{ agendamento.motivo }}<br>
                 <em>Telefone:</em> {{ agendamento.telefone }}
             </div>
-            <form action="/deletar/{{ agendamento.id }}" method="post" style="display: inline;">
+            <form action="/deletar/{{ agendamento.id }}" method="post" class="delete-form">
                 <button type="submit">Deletar</button>
             </form>
         </li>
         {% endfor %}
     </ul>
+
+    {% if paginacao.pages > 1 %}
+        <div class="pagination-controls">
+            {% if paginacao.has_prev %}
+                <a href="{{ url_for('painel', pagina=paginacao.prev_num, **query_params) }}" class="button secondary-button">Anterior</a>
+            {% endif %}
+
+            <span class="pagination-current">Página {{ paginacao.page }} de {{ paginacao.pages }}</span>
+
+            {% if paginacao.has_next %}
+                <a href="{{ url_for('painel', pagina=paginacao.next_num, **query_params) }}" class="button secondary-button">Próxima</a>
+            {% endif %}
+        </div>
+    {% endif %}
     
     <p><a href="/cliente">Voltar para agendamento</a></p>
 </body>

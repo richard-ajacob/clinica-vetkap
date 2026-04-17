@@ -14,39 +14,60 @@
     {% endif %}
 
     <form action="/agendar" method="post">
-        <label for="nome_dono">Nome do Dono:</label>
+        <label for="nome_dono">Nome do Tutor:</label>
         <input type="text" id="nome_dono" name="nome_dono" required>
         
         <label for="nome_pet">Nome do Pet:</label>
         <input type="text" id="nome_pet" name="nome_pet" required>
         
-        <label for="especie">Espécie:</label>
-        <select id="especie" name="especie" required>
-            <option value="Cachorro">Cachorro</option>
-            <option value="Gato">Gato</option>
-        </select>
+        <label>Espécie:</label>
+        <div class="radio-group">
+            <label class="radio-option" for="especie_canino">
+                <input type="radio" id="especie_canino" name="especie" value="Canino" required>
+                Canino
+            </label>
+            <label class="radio-option" for="especie_felino">
+                <input type="radio" id="especie_felino" name="especie" value="Felino" required>
+                Felino
+            </label>
+        </div>
         
-        <label for="sexo">Sexo:</label>
-        <select id="sexo" name="sexo" required>
-            <option value="Macho">Macho</option>
-            <option value="Fêmea">Fêmea</option>
-        </select>
+        <label>Sexo:</label>
+        <div class="radio-group">
+            <label class="radio-option" for="sexo_macho">
+                <input type="radio" id="sexo_macho" name="sexo" value="Macho" required>
+                Macho
+            </label>
+            <label class="radio-option" for="sexo_femea">
+                <input type="radio" id="sexo_femea" name="sexo" value="Fêmea" required>
+                Fêmea
+            </label>
+        </div>
         
         <label for="telefone">Telefone (DDD):</label>
         <input type="tel" id="telefone" name="telefone" placeholder="(XX) XXXXX-XXXX ou XXXXXXXXXXX" pattern="^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$" title="Use o formato (XX) XXXXX-XXXX ou XXXXXXXXXXX" required>
-        
-        <label for="data">Data e Hora:</label>
-        <input type="datetime-local" id="data" name="data" required>
-        
-        <label for="servico">Serviço:</label>
-        <select id="servico" name="servico" required>
-            <option value="Consulta">Consulta</option>
-        </select>
         
         <label for="doutora">Doutora:</label>
         <select id="doutora" name="doutora" required>
             <option value="Doutora 1">Doutora 1</option>
             <option value="Doutora 2">Doutora 2</option>
+            <option value="Doutora 3">Doutora 3</option>
+            <option value="Doutora 4">Doutora 4</option>
+        </select>
+
+        <label for="data_consulta">Data da Consulta:</label>
+        <input type="date" id="data_consulta" name="data_consulta" required>
+
+        <label for="horario_consulta">Horário:</label>
+        <select id="horario_consulta" name="horario_consulta" required disabled>
+            <option value="">Selecione a doutora e a data primeiro</option>
+        </select>
+        <p id="horario_info" class="helper-message">Os horários disponíveis são atualizados automaticamente.</p>
+        <input type="hidden" id="data" name="data" required>
+        
+        <label for="servico">Serviço:</label>
+        <select id="servico" name="servico" required>
+            <option value="Consulta">Consulta</option>
         </select>
         
         <label for="motivo">Motivo da Consulta:</label>
@@ -56,5 +77,87 @@
     </form>
     
     <p>Após agendar, você será redirecionado. Para acessar o painel, vá para <a href="/painel">/painel</a>.</p>
+
+    <script>
+        const doutoraSelect = document.getElementById('doutora');
+        const dataInput = document.getElementById('data_consulta');
+        const horarioSelect = document.getElementById('horario_consulta');
+        const dataHidden = document.getElementById('data');
+        const horarioInfo = document.getElementById('horario_info');
+        const form = document.querySelector('form');
+
+        function atualizarDataOculta() {
+            if (dataInput.value && horarioSelect.value) {
+                dataHidden.value = `${dataInput.value}T${horarioSelect.value}`;
+            } else {
+                dataHidden.value = '';
+            }
+        }
+
+        function definirMensagemHorario(mensagem) {
+            horarioInfo.textContent = mensagem;
+        }
+
+        async function carregarHorariosDisponiveis() {
+            const doutora = doutoraSelect.value;
+            const data = dataInput.value;
+
+            horarioSelect.innerHTML = '';
+            horarioSelect.disabled = true;
+            atualizarDataOculta();
+
+            if (!doutora || !data) {
+                horarioSelect.innerHTML = '<option value="">Selecione a doutora e a data primeiro</option>';
+                definirMensagemHorario('Os horários disponíveis são atualizados automaticamente.');
+                return;
+            }
+
+            try {
+                const resposta = await fetch(`/horarios-disponiveis?doutora=${encodeURIComponent(doutora)}&data=${encodeURIComponent(data)}`);
+                const payload = await resposta.json();
+
+                if (!resposta.ok) {
+                    horarioSelect.innerHTML = '<option value="">Não foi possível carregar horários</option>';
+                    definirMensagemHorario(payload.erro || 'Erro ao buscar horários.');
+                    return;
+                }
+
+                if (!payload.horarios || payload.horarios.length === 0) {
+                    horarioSelect.innerHTML = '<option value="">Sem horários disponíveis</option>';
+                    definirMensagemHorario('Não há horários livres para esta data. Tente outra data ou doutora.');
+                    return;
+                }
+
+                horarioSelect.innerHTML = '<option value="">Selecione um horário</option>';
+                for (const horario of payload.horarios) {
+                    const option = document.createElement('option');
+                    option.value = horario;
+                    option.textContent = horario;
+                    horarioSelect.appendChild(option);
+                }
+
+                horarioSelect.disabled = false;
+                definirMensagemHorario('Escolha um dos horários disponíveis abaixo.');
+            } catch (erro) {
+                horarioSelect.innerHTML = '<option value="">Erro ao carregar horários</option>';
+                definirMensagemHorario('Falha de conexão ao buscar horários.');
+            }
+        }
+
+        const hoje = new Date().toISOString().split('T')[0];
+        dataInput.min = hoje;
+
+        doutoraSelect.addEventListener('change', carregarHorariosDisponiveis);
+        dataInput.addEventListener('change', carregarHorariosDisponiveis);
+        horarioSelect.addEventListener('change', atualizarDataOculta);
+
+        form.addEventListener('submit', function (event) {
+            atualizarDataOculta();
+            if (!dataHidden.value) {
+                event.preventDefault();
+                definirMensagemHorario('Selecione uma data e um horário disponível antes de agendar.');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -27,6 +27,25 @@ textarea {
     box-sizing: border-box;
 }
 
+.radio-group {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.radio-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 0;
+}
+
+.radio-option input[type="radio"] {
+    width: auto;
+    margin-top: 0;
+}
+
 textarea {
     min-height: 100px;
     resize: vertical;
@@ -88,6 +107,69 @@ a {
     color: red;
 }
 
+.helper-message {
+    margin-top: 8px;
+    color: #555;
+    font-size: 0.95rem;
+}
+
+.filter-form {
+    max-width: none;
+    width: 100%;
+    margin: 20px 0;
+    padding: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f5f5f5;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.secondary-button {
+    background-color: #666;
+}
+
+.secondary-button:hover {
+    background-color: #555;
+}
+
+.delete-form {
+    width: auto;
+    max-width: none;
+    margin-bottom: 0;
+}
+
+.pagination-summary {
+    margin: 16px 0 10px;
+    color: #555;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 20px 0;
+}
+
+.pagination-current {
+    color: #333;
+    font-weight: 600;
+}
+
 @media (max-width: 768px) {
     body {
         margin: 10px;
@@ -106,5 +188,13 @@ a {
         float: none;
         display: block;
         margin-bottom: 10px;
+    }
+    .filter-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .pagination-controls {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
