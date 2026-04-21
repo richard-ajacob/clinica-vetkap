@@ -18,7 +18,38 @@
         <p>Mostrando apenas os agendamentos de {{ doctor }}.</p>
     {% endif %}
 
-    <form action="/painel" method="get" class="filter-form">
+    <section class="metrics-grid">
+        <article class="metric-card">
+            <p class="metric-label">Total Encontrado</p>
+            <p class="metric-value">{{ metricas.total }}</p>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Agendadas</p>
+            <p class="metric-value">{{ metricas.agendada }}</p>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Concluidas</p>
+            <p class="metric-value">{{ metricas.concluida }}</p>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Canceladas</p>
+            <p class="metric-value">{{ metricas.cancelada }}</p>
+        </article>
+    </section>
+
+    {%- set filtros_ativos = filtros.values() | select | list | count %}
+
+    <div class="filter-toggle-bar">
+        <button type="button" class="filter-toggle-btn" id="filtroToggle" aria-expanded="false" aria-controls="filtroPanel">
+            <span>🔍 Filtros</span>
+            {% if filtros_ativos > 0 %}
+                <span class="filter-badge">{{ filtros_ativos }}</span>
+            {% endif %}
+            <span class="filter-arrow" id="filtroArrow">▼</span>
+        </button>
+    </div>
+
+    <form action="/painel" method="get" class="filter-form filter-collapsible" id="filtroPanel">
         <div class="filter-grid">
             <div>
                 <label for="nome">Nome do tutor ou pet:</label>
@@ -69,11 +100,19 @@
                     {% endfor %}
                 </select>
             </div>
-        </div>
-
-        <div class="filter-actions">
-            <button type="submit">Filtrar</button>
-            <a href="/painel" class="button secondary-button">Limpar filtros</a>
+            <div>
+                <label for="status">Status:</label>
+                <select id="status" name="status">
+                    <option value="">Todos</option>
+                    {% for option in status_options %}
+                        <option value="{{ option }}" {% if filtros.status == option %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit">Filtrar</button>
+                <a href="/painel" class="button secondary-button">Limpar filtros</a>
+            </div>
         </div>
     </form>
 
@@ -93,14 +132,30 @@
         {% endif %}
         {% for agendamento in agendamentos %}
         <li>
-            <div>
-                <strong>{{ agendamento.nome_pet }}</strong> ({{ agendamento.especie }}, {{ agendamento.sexo }}) - (Tutor: {{ agendamento.nome_dono }}) - {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }} - {{ agendamento.servico }} - {{ agendamento.doutora }}<br>
-                <em>Motivo:</em> {{ agendamento.motivo }}<br>
-                <em>Telefone:</em> {{ agendamento.telefone }}
+            <div class="appointment-content">
+                <p class="appointment-title">
+                    <strong>{% if agendamento.reagendamento %}Reagendamento {{ agendamento.nome_pet }}{% else %}{{ agendamento.nome_pet }}{% endif %}</strong>
+                </p>
+                <p class="appointment-meta">{{ agendamento.especie }} | {{ agendamento.sexo }} | Tutor: {{ agendamento.nome_dono }}</p>
+                <p class="appointment-meta">{{ agendamento.data.strftime('%d/%m/%Y %H:%M') }} | {{ agendamento.servico }} | {{ agendamento.doutora }}</p>
+                <p class="appointment-meta">Telefone: {{ agendamento.telefone }}</p>
+                <p class="appointment-motivo"><em>Motivo:</em> {{ agendamento.motivo }}</p>
+                <p class="appointment-status"><em>Status:</em> <span class="status-badge status-{{ agendamento.status|lower|replace('ã', 'a') }}">{{ agendamento.status }}</span></p>
             </div>
-            <form action="/deletar/{{ agendamento.id }}" method="post" class="delete-form">
-                <button type="submit">Deletar</button>
-            </form>
+            <div class="appointment-actions">
+                <form action="{{ url_for('concluir', id=agendamento.id) }}" method="post" class="action-form">
+                    <button type="submit" class="action-button success-button" title="Concluir" {% if agendamento.status == 'Concluida' %}disabled{% endif %}>✅</button>
+                </form>
+                <form action="{{ url_for('reagendar_page', id=agendamento.id) }}" method="get" class="action-form">
+                    <button type="submit" class="action-button warning-button" title="Reagendar">⏰</button>
+                </form>
+                <form action="{{ url_for('cancelar', id=agendamento.id) }}" method="post" class="action-form">
+                    <button type="submit" class="action-button danger-button" title="Cancelar" {% if agendamento.status == 'Cancelada' %}disabled{% endif %}>❌</button>
+                </form>
+                <form action="{{ url_for('deletar', id=agendamento.id) }}" method="post" class="action-form" onsubmit="return confirm('Tem certeza que deseja excluir este agendamento?');">
+                    <button type="submit" class="action-button delete-button" title="Excluir">🗑️</button>
+                </form>
+            </div>
         </li>
         {% endfor %}
     </ul>
@@ -120,5 +175,24 @@
     {% endif %}
     
     <p><a href="/cliente">Voltar para agendamento</a></p>
+
+    <script>
+        const btn = document.getElementById('filtroToggle');
+        const panel = document.getElementById('filtroPanel');
+        const arrow = document.getElementById('filtroArrow');
+
+        {% if filtros_ativos > 0 %}
+        // Se há filtros ativos, abre o painel automaticamente
+        panel.classList.add('filter-open');
+        btn.setAttribute('aria-expanded', 'true');
+        arrow.textContent = '▲';
+        {% endif %}
+
+        btn.addEventListener('click', function () {
+            const aberto = panel.classList.toggle('filter-open');
+            btn.setAttribute('aria-expanded', String(aberto));
+            arrow.textContent = aberto ? '▲' : '▼';
+        });
+    </script>
 </body>
 </html>

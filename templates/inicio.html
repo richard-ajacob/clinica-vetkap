@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bem-vindo – Clínica Veterinária</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="inicio-container">
+        <div class="inicio-logo">🐾</div>
+        <h1 class="inicio-titulo">Bem-vindo à VetKap</h1>
+        <p class="inicio-subtitulo">
+            Este é o portal de agendamento online da nossa clínica.<br>
+            Aqui você pode marcar consultas para o seu pet de forma rápida e fácil,
+            escolhendo a veterinária, o dia e o horário que melhor se encaixam na sua rotina.
+        </p>
+        <div class="inicio-botoes">
+            <a href="{{ url_for('cliente') }}" class="btn-primario">Fazer um Agendamento</a>
+            <a href="{{ url_for('login_page') }}" class="btn-secundario">Área da Equipe</a>
+        </div>
+        <p class="inicio-rodape">VetKap &copy; {{ ano }}</p>
+    </div>
+</body>
+</html>

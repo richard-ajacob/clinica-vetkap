@@ -2,7 +2,7 @@ import re
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
-from sqlalchemy import or_
+from sqlalchemy import or_, inspect, text
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agendamentos.db'
@@ -41,12 +41,14 @@ class Agendamento(db.Model):
     servico = db.Column(db.String(200), nullable=False)
     doutora = db.Column(db.String(50), nullable=False)
     motivo = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='Agendada')
+    reagendamento = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return f'<Agendamento {self.id}>'
 
 
-def gerar_horarios_disponiveis(doutora, data_consulta):
+def gerar_horarios_disponiveis(doutora, data_consulta, agendamento_id_ignorar=None):
     janela = JANELAS_ATENDIMENTO.get(doutora)
     if not janela:
         return []
@@ -58,7 +60,14 @@ def gerar_horarios_disponiveis(doutora, data_consulta):
     duracao_consulta = timedelta(minutes=INTERVALO_MINUTOS)
     passo_horarios = timedelta(minutes=PASSO_HORARIOS_MINUTOS)
 
-    agendamentos = Agendamento.query.filter_by(doutora=doutora).all()
+    query_agendamentos = Agendamento.query.filter(
+        Agendamento.doutora == doutora,
+        Agendamento.status == 'Agendada'
+    )
+    if agendamento_id_ignorar is not None:
+        query_agendamentos = query_agendamentos.filter(Agendamento.id != agendamento_id_ignorar)
+
+    agendamentos = query_agendamentos.all()
     agendamentos_no_dia = [a for a in agendamentos if a.data.date() == data_consulta]
 
     horarios = []
@@ -88,7 +97,40 @@ def gerar_horarios_disponiveis(doutora, data_consulta):
 
 @app.route('/')
 def index():
-    return redirect(url_for('cliente'))
+    from datetime import date
+    return render_template('inicio.html', ano=date.today().year)
+
+
+def obter_agendamento_gerenciavel(id):
+    if 'logged_in' not in session:
+        return None, redirect(url_for('login_page'))
+
+    agendamento = Agendamento.query.get_or_404(id)
+    role = session.get('role')
+    user = session.get('user')
+
+    if role != 'reception' and agendamento.doutora != user:
+        return None, redirect(url_for('painel'))
+
+    return agendamento, None
+
+
+def existe_conflito_agendamento(doutora, inicio_consulta, duracao_consulta, agendamento_id_ignorar=None):
+    fim_consulta = inicio_consulta + duracao_consulta
+    query_agendamentos = Agendamento.query.filter(
+        Agendamento.doutora == doutora,
+        Agendamento.status == 'Agendada'
+    )
+    if agendamento_id_ignorar is not None:
+        query_agendamentos = query_agendamentos.filter(Agendamento.id != agendamento_id_ignorar)
+
+    for agendamento in query_agendamentos.all():
+        inicio_existente = agendamento.data
+        fim_existente = inicio_existente + duracao_consulta
+        if inicio_consulta < fim_existente and fim_consulta > inicio_existente:
+            return True
+
+    return False
 
 @app.route('/cliente')
 def cliente():
@@ -99,6 +141,7 @@ def cliente():
 def horarios_disponiveis():
     doutora = request.args.get('doutora', '').strip()
     data_str = request.args.get('data', '').strip()
+    agendamento_id = request.args.get('agendamento_id', type=int)
 
     if not doutora or not data_str:
         return jsonify({'horarios': []})
@@ -108,7 +151,7 @@ def horarios_disponiveis():
     except ValueError:
         return jsonify({'horarios': [], 'erro': 'Data inválida'}), 400
 
-    horarios = gerar_horarios_disponiveis(doutora, data_consulta)
+    horarios = gerar_horarios_disponiveis(doutora, data_consulta, agendamento_id_ignorar=agendamento_id)
     return jsonify({'horarios': horarios})
 
 @app.route('/agendar', methods=['POST'])
@@ -140,21 +183,27 @@ def agendar():
     if data.strftime('%H:%M') not in horarios_disponiveis_data:
         return render_template('cliente.html', erro='Horário fora do período da doutora ou já indisponível. Escolha outro horário.')
 
-    fim = data + timedelta(minutes=INTERVALO_MINUTOS)
-
-    # Bloquear janela de atendimento para a mesma doutora
-    conflito = False
-    for agendamento in Agendamento.query.filter_by(doutora=doutora).all():
-        inicio_existente = agendamento.data
-        fim_existente = inicio_existente + timedelta(minutes=INTERVALO_MINUTOS)
-        if data < fim_existente and fim > inicio_existente:
-            conflito = True
-            break
+    conflito = existe_conflito_agendamento(
+        doutora=doutora,
+        inicio_consulta=data,
+        duracao_consulta=timedelta(minutes=INTERVALO_MINUTOS),
+    )
 
     if conflito:
         return render_template('cliente.html', erro='Horário indisponível para esta doutora. Escolha outro horário.')
 
-    novo_agendamento = Agendamento(nome_dono=nome_dono, nome_pet=nome_pet, especie=especie, sexo=sexo, telefone=telefone, data=data, servico=servico, doutora=doutora, motivo=motivo)
+    novo_agendamento = Agendamento(
+        nome_dono=nome_dono,
+        nome_pet=nome_pet,
+        especie=especie,
+        sexo=sexo,
+        telefone=telefone,
+        data=data,
+        servico=servico,
+        doutora=doutora,
+        motivo=motivo,
+        reagendamento=False,
+    )
     db.session.add(novo_agendamento)
     db.session.commit()
 
@@ -168,6 +217,99 @@ def confirmacao():
         return redirect(url_for('cliente'))
     agendamento = Agendamento.query.get_or_404(agendamento_id)
     return render_template('confirmacao.html', agendamento=agendamento)
+
+
+@app.route('/reagendar/<int:id>', methods=['GET'])
+def reagendar_page(id):
+    agendamento, resposta = obter_agendamento_gerenciavel(id)
+    if resposta:
+        return resposta
+
+    return render_template(
+        'reagendar.html',
+        agendamento=agendamento,
+        data_consulta=agendamento.data.strftime('%Y-%m-%d'),
+        horario_consulta=agendamento.data.strftime('%H:%M'),
+    )
+
+
+@app.route('/reagendar/<int:id>', methods=['POST'])
+def reagendar_salvar(id):
+    agendamento, resposta = obter_agendamento_gerenciavel(id)
+    if resposta:
+        return resposta
+
+    motivo = request.form.get('motivo', '').strip()
+    data_str = request.form.get('data', '').strip()
+
+    if not motivo or not data_str:
+        return render_template(
+            'reagendar.html',
+            agendamento=agendamento,
+            data_consulta=request.form.get('data_consulta', '').strip() or agendamento.data.strftime('%Y-%m-%d'),
+            horario_consulta=request.form.get('horario_consulta', '').strip() or agendamento.data.strftime('%H:%M'),
+            erro='Data, horário e motivo são obrigatórios.',
+        )
+
+    try:
+        nova_data = datetime.strptime(data_str, '%Y-%m-%dT%H:%M')
+    except ValueError:
+        return render_template(
+            'reagendar.html',
+            agendamento=agendamento,
+            data_consulta=request.form.get('data_consulta', '').strip() or agendamento.data.strftime('%Y-%m-%d'),
+            horario_consulta=request.form.get('horario_consulta', '').strip() or agendamento.data.strftime('%H:%M'),
+            erro='Data ou horário inválido.',
+        )
+
+    horarios_disponiveis_data = gerar_horarios_disponiveis(
+        agendamento.doutora,
+        nova_data.date(),
+        agendamento_id_ignorar=agendamento.id,
+    )
+    if nova_data.strftime('%H:%M') not in horarios_disponiveis_data:
+        return render_template(
+            'reagendar.html',
+            agendamento=agendamento,
+            data_consulta=request.form.get('data_consulta', '').strip() or agendamento.data.strftime('%Y-%m-%d'),
+            horario_consulta=request.form.get('horario_consulta', '').strip() or agendamento.data.strftime('%H:%M'),
+            erro='Horário indisponível para esta doutora. Escolha outro horário.',
+        )
+
+    conflito = existe_conflito_agendamento(
+        doutora=agendamento.doutora,
+        inicio_consulta=nova_data,
+        duracao_consulta=timedelta(minutes=INTERVALO_MINUTOS),
+        agendamento_id_ignorar=agendamento.id,
+    )
+    if conflito:
+        return render_template(
+            'reagendar.html',
+            agendamento=agendamento,
+            data_consulta=request.form.get('data_consulta', '').strip() or agendamento.data.strftime('%Y-%m-%d'),
+            horario_consulta=request.form.get('horario_consulta', '').strip() or agendamento.data.strftime('%H:%M'),
+            erro='Horário indisponível para esta doutora. Escolha outro horário.',
+        )
+
+    novo_agendamento = Agendamento(
+        nome_dono=agendamento.nome_dono,
+        nome_pet=agendamento.nome_pet,
+        especie=agendamento.especie,
+        sexo=agendamento.sexo,
+        telefone=agendamento.telefone,
+        data=nova_data,
+        servico=agendamento.servico,
+        doutora=agendamento.doutora,
+        motivo=motivo,
+        status='Agendada',
+        reagendamento=True,
+    )
+
+    agendamento.status = 'Concluida'
+
+    db.session.add(novo_agendamento)
+    db.session.commit()
+    return redirect(url_for('painel'))
 
 @app.route('/painel')
 def painel():
@@ -185,6 +327,7 @@ def painel():
     servico_filtro = request.args.get('servico', '').strip()
     especie_filtro = request.args.get('especie', '').strip()
     sexo_filtro = request.args.get('sexo', '').strip()
+    status_filtro = request.args.get('status', '').strip()
     filtro_erro = ''
 
     if role == 'reception':
@@ -204,6 +347,7 @@ def painel():
 
     especie_options = ['Canino', 'Felino']
     sexo_options = ['Macho', 'Fêmea']
+    status_options = ['Agendada', 'Concluida', 'Cancelada']
 
     query = base_query
 
@@ -236,6 +380,16 @@ def painel():
     if sexo_filtro:
         query = query.filter_by(sexo=sexo_filtro)
 
+    if status_filtro:
+        query = query.filter_by(status=status_filtro)
+
+    metricas = {
+        'total': query.count(),
+        'agendada': query.filter(Agendamento.status == 'Agendada').count(),
+        'concluida': query.filter(Agendamento.status == 'Concluida').count(),
+        'cancelada': query.filter(Agendamento.status == 'Cancelada').count(),
+    }
+
     paginacao = query.order_by(Agendamento.data.asc()).paginate(page=pagina, per_page=10, error_out=False)
     agendamentos = paginacao.items
     filtros = {
@@ -245,6 +399,7 @@ def painel():
         'servico': servico_filtro,
         'especie': especie_filtro,
         'sexo': sexo_filtro,
+        'status': status_filtro,
     }
     query_params = {chave: valor for chave, valor in filtros.items() if valor}
 
@@ -260,6 +415,8 @@ def painel():
         service_options=service_options,
         especie_options=especie_options,
         sexo_options=sexo_options,
+        status_options=status_options,
+        metricas=metricas,
         filtro_erro=filtro_erro,
     )
 
@@ -294,16 +451,56 @@ def logout():
 
 @app.route('/deletar/<int:id>', methods=['POST'])
 def deletar(id):
-    if 'logged_in' not in session:
-        return redirect(url_for('login_page'))
-    agendamento = Agendamento.query.get_or_404(id)
+    agendamento, resposta = obter_agendamento_gerenciavel(id)
+    if resposta:
+        return resposta
+
     db.session.delete(agendamento)
+    db.session.commit()
+    return redirect(url_for('painel'))
+
+
+@app.route('/concluir/<int:id>', methods=['POST'])
+def concluir(id):
+    agendamento, resposta = obter_agendamento_gerenciavel(id)
+    if resposta:
+        return resposta
+
+    agendamento.status = 'Concluida'
+    db.session.commit()
+    return redirect(url_for('painel'))
+
+
+@app.route('/cancelar/<int:id>', methods=['POST'])
+def cancelar(id):
+    agendamento, resposta = obter_agendamento_gerenciavel(id)
+    if resposta:
+        return resposta
+
+    agendamento.status = 'Cancelada'
     db.session.commit()
     return redirect(url_for('painel'))
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+
+        inspetor = inspect(db.engine)
+        colunas_agendamentos = {coluna['name'] for coluna in inspetor.get_columns('agendamento')}
+        if 'status' not in colunas_agendamentos:
+            db.session.execute(text("ALTER TABLE agendamento ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'Agendada'"))
+            db.session.commit()
+        if 'reagendamento' not in colunas_agendamentos:
+            db.session.execute(text("ALTER TABLE agendamento ADD COLUMN reagendamento BOOLEAN NOT NULL DEFAULT 0"))
+            db.session.commit()
+
+        Agendamento.query.filter(
+            or_(Agendamento.status.is_(None), Agendamento.status == '')
+        ).update({'status': 'Agendada'}, synchronize_session=False)
+        db.session.commit()
+
+        Agendamento.query.filter(Agendamento.reagendamento.is_(None)).update({'reagendamento': False}, synchronize_session=False)
+        db.session.commit()
 
         usuarios_padrao = [
             {'username': 'samantha.neves', 'nome': 'Samantha Neves', 'senha': 'vet123', 'role': 'doctor'},
