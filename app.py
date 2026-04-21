@@ -11,11 +11,12 @@ app.secret_key = 'chave_secreta_vet'  # Chave secreta para sessões
 db = SQLAlchemy(app)
 
 INTERVALO_MINUTOS = 40
+PASSO_HORARIOS_MINUTOS = 20
 JANELAS_ATENDIMENTO = {
-    'Doutora 1': ((8, 30), (13, 0)),
-    'Doutora 2': ((8, 30), (13, 0)),
-    'Doutora 3': ((14, 0), (18, 30)),
-    'Doutora 4': ((14, 0), (18, 30)),
+    'Samantha Neves': ((8, 30), (13, 0)),
+    'Bruna Prudêncio': ((8, 30), (13, 0)),
+    'Karina Pereira': ((14, 0), (18, 30)),
+    'Sara Thevenard': ((14, 0), (18, 30)),
 }
 DOUTORAS = list(JANELAS_ATENDIMENTO.keys())
 
@@ -54,7 +55,8 @@ def gerar_horarios_disponiveis(doutora, data_consulta):
     inicio_dia = datetime.combine(data_consulta, datetime.min.time()).replace(hour=hora_inicio, minute=minuto_inicio)
     fim_dia = datetime.combine(data_consulta, datetime.min.time()).replace(hour=hora_fim, minute=minuto_fim)
     agora_limite = datetime.now() + timedelta(minutes=INTERVALO_MINUTOS)
-    intervalo = timedelta(minutes=INTERVALO_MINUTOS)
+    duracao_consulta = timedelta(minutes=INTERVALO_MINUTOS)
+    passo_horarios = timedelta(minutes=PASSO_HORARIOS_MINUTOS)
 
     agendamentos = Agendamento.query.filter_by(doutora=doutora).all()
     agendamentos_no_dia = [a for a in agendamentos if a.data.date() == data_consulta]
@@ -62,17 +64,17 @@ def gerar_horarios_disponiveis(doutora, data_consulta):
     horarios = []
     horario_atual = inicio_dia
 
-    while horario_atual + intervalo <= fim_dia:
-        fim_horario = horario_atual + intervalo
+    while horario_atual + duracao_consulta <= fim_dia:
+        fim_horario = horario_atual + duracao_consulta
 
         if data_consulta == datetime.now().date() and horario_atual < agora_limite:
-            horario_atual += intervalo
+            horario_atual += passo_horarios
             continue
 
         conflito = False
         for agendamento in agendamentos_no_dia:
             inicio_existente = agendamento.data
-            fim_existente = inicio_existente + intervalo
+            fim_existente = inicio_existente + duracao_consulta
             if horario_atual < fim_existente and fim_horario > inicio_existente:
                 conflito = True
                 break
@@ -80,7 +82,7 @@ def gerar_horarios_disponiveis(doutora, data_consulta):
         if not conflito:
             horarios.append(horario_atual.strftime('%H:%M'))
 
-        horario_atual += intervalo
+        horario_atual += passo_horarios
 
     return horarios
 
@@ -118,7 +120,7 @@ def agendar():
     telefone = request.form.get('telefone', '').strip()
     data_str = request.form.get('data', '').strip()
     servico = request.form.get('servico', '').strip()
-    doutora = request.form.get('doutora', 'Doutora 1').strip()
+    doutora = request.form.get('doutora', 'Samantha Neves').strip()
     motivo = request.form.get('motivo', '').strip()
 
     if not (nome_dono and nome_pet and especie and sexo and telefone and data_str and servico and doutora and motivo):
@@ -304,12 +306,40 @@ if __name__ == '__main__':
         db.create_all()
 
         usuarios_padrao = [
-            {'username': 'doutora1', 'nome': 'Doutora 1', 'senha': 'vet123', 'role': 'doctor'},
-            {'username': 'doutora2', 'nome': 'Doutora 2', 'senha': 'vet456', 'role': 'doctor'},
-            {'username': 'doutora3', 'nome': 'Doutora 3', 'senha': 'vet789', 'role': 'doctor'},
-            {'username': 'doutora4', 'nome': 'Doutora 4', 'senha': 'vet101', 'role': 'doctor'},
+            {'username': 'samantha.neves', 'nome': 'Samantha Neves', 'senha': 'vet123', 'role': 'doctor'},
+            {'username': 'bruna.prudencio', 'nome': 'Bruna Prudêncio', 'senha': 'vet456', 'role': 'doctor'},
+            {'username': 'karina.pereira', 'nome': 'Karina Pereira', 'senha': 'vet789', 'role': 'doctor'},
+            {'username': 'sara.thevenard', 'nome': 'Sara Thevenard', 'senha': 'vet101', 'role': 'doctor'},
             {'username': 'recepcao', 'nome': 'Recepção', 'senha': 'vetkap', 'role': 'reception'},
         ]
+
+        mapeamento_usuarios = {
+            'doutora1': {'username': 'samantha.neves', 'nome': 'Samantha Neves'},
+            'doutora2': {'username': 'bruna.prudencio', 'nome': 'Bruna Prudêncio'},
+            'doutora3': {'username': 'karina.pereira', 'nome': 'Karina Pereira'},
+            'doutora4': {'username': 'sara.thevenard', 'nome': 'Sara Thevenard'},
+        }
+        for antigo_username, novo_dado in mapeamento_usuarios.items():
+            antigo_usuario = Usuario.query.filter_by(username=antigo_username).first()
+            if not antigo_usuario:
+                continue
+
+            usuario_destino = Usuario.query.filter_by(username=novo_dado['username']).first()
+            if usuario_destino:
+                usuario_destino.nome = novo_dado['nome']
+                db.session.delete(antigo_usuario)
+            else:
+                antigo_usuario.username = novo_dado['username']
+                antigo_usuario.nome = novo_dado['nome']
+
+        mapeamento_doutoras = {
+            'Doutora 1': 'Samantha Neves',
+            'Doutora 2': 'Bruna Prudêncio',
+            'Doutora 3': 'Karina Pereira',
+            'Doutora 4': 'Sara Thevenard',
+        }
+        for nome_antigo, nome_novo in mapeamento_doutoras.items():
+            Agendamento.query.filter_by(doutora=nome_antigo).update({'doutora': nome_novo}, synchronize_session=False)
 
         for usuario_data in usuarios_padrao:
             usuario = Usuario.query.filter_by(username=usuario_data['username']).first()
@@ -327,7 +357,7 @@ if __name__ == '__main__':
             columns = [row[1] for row in result]
             if 'doutora' not in columns:
                 try:
-                    conn.execute(db.text("ALTER TABLE agendamento ADD COLUMN doutora VARCHAR(50) DEFAULT 'Doutora 1'"))
+                    conn.execute(db.text("ALTER TABLE agendamento ADD COLUMN doutora VARCHAR(50) DEFAULT 'Samantha Neves'"))
                     print('Coluna doutora adicionada à tabela agendamento')
                 except Exception as e:
                     print('Falha ao adicionar coluna doutora:', e)
