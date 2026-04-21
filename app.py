@@ -97,8 +97,7 @@ def gerar_horarios_disponiveis(doutora, data_consulta, agendamento_id_ignorar=No
 
 @app.route('/')
 def index():
-    from datetime import date
-    return render_template('inicio.html', ano=date.today().year)
+    return render_template('inicio.html', ano=datetime.now().year)
 
 
 def obter_agendamento_gerenciavel(id):
@@ -214,7 +213,7 @@ def agendar():
 def confirmacao():
     agendamento_id = session.pop('last_agendamento_id', None)
     if not agendamento_id:
-        return redirect(url_for('cliente'))
+        return redirect(url_for('index'))
     agendamento = Agendamento.query.get_or_404(agendamento_id)
     return render_template('confirmacao.html', agendamento=agendamento)
 
@@ -447,7 +446,7 @@ def logout():
     session.pop('logged_in', None)
     session.pop('user', None)
     session.pop('role', None)
-    return redirect(url_for('cliente'))
+    return redirect(url_for('index'))
 
 @app.route('/deletar/<int:id>', methods=['POST'])
 def deletar(id):
