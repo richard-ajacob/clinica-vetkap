@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <div class="site-logo-bar">
+        <img src="{{ url_for('static', filename='img/logo.png') }}?v=2" alt="VetKap – Clínica Veterinária">
+    </div>
     <h1>Painel de {{ doctor }}</h1>
     <a href="/logout" class="logout">Sair</a>
     

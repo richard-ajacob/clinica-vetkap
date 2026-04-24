@@ -7,15 +7,23 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>Consulta marcada com sucesso!</h1>
-    <div class="card">
-        <p><strong>Data e hora:</strong> {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }}</p>
-        <p><strong>Doutora:</strong> {{ agendamento.doutora }}</p>
-        <p><strong>Pet:</strong> {{ agendamento.nome_pet }} ({{ agendamento.especie }}, {{ agendamento.sexo }})</p>
-        <p><strong>Telefone:</strong> {{ agendamento.telefone }}</p>
-        <p><strong>Motivo:</strong> {{ agendamento.motivo }}</p>
-    </div>
-    <br>
-    <a href="/" class="button">Voltar para a página inicial</a>
+    <main class="centered-page">
+        <section class="page-card centered-card confirmation-card">
+            <div class="confirm-logo">
+                <img src="{{ url_for('static', filename='img/logo.png') }}?v=2" alt="VetKap - Clinica Veterinaria">
+            </div>
+
+            <h1>Consulta marcada com sucesso!</h1>
+            <div class="card">
+                <p><strong>Data e hora:</strong> {{ agendamento.data.strftime('%d/%m/%Y %H:%M') }}</p>
+                <p><strong>Doutora:</strong> {{ agendamento.doutora }}</p>
+                <p><strong>Pet:</strong> {{ agendamento.nome_pet }} ({{ agendamento.especie }}, {{ agendamento.sexo }})</p>
+                <p><strong>Telefone:</strong> {{ agendamento.telefone }}</p>
+                <p><strong>Motivo:</strong> {{ agendamento.motivo }}</p>
+            </div>
+
+            <a href="/" class="button">Voltar para a pagina inicial</a>
+        </section>
+    </main>
 </body>
 </html>

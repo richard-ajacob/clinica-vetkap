@@ -11,12 +11,12 @@ app.secret_key = 'chave_secreta_vet'  # Chave secreta para sessões
 db = SQLAlchemy(app)
 
 INTERVALO_MINUTOS = 40
-PASSO_HORARIOS_MINUTOS = 20
+PASSO_HORARIOS_MINUTOS = 40
 JANELAS_ATENDIMENTO = {
-    'Samantha Neves': ((8, 30), (13, 0)),
-    'Bruna Prudêncio': ((8, 30), (13, 0)),
-    'Karina Pereira': ((14, 0), (18, 30)),
-    'Sara Thevenard': ((14, 0), (18, 30)),
+    'Samantha Neves': ((8, 30), (13, 50)),
+    'Bruna Prudêncio': ((8, 30), (13, 50)),
+    'Karina Pereira': ((14, 0), (19, 20)),
+    'Sara Thevenard': ((14, 0), (19, 20)),
 }
 DOUTORAS = list(JANELAS_ATENDIMENTO.keys())
 

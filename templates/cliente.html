@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agendamento - Clínica Veterinária</title>
+    <title>Agendamento - VetKap</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <main class="page-shell">
+        <div class="site-logo-bar">
+            <img src="{{ url_for('static', filename='img/logo.png') }}?v=2" alt="VetKap – Clínica Veterinária">
+        </div>
         <header class="page-header">
-            <h1>Agendamento para Clínica Veterinária</h1>
+            <h1>Agendamento - VetKap</h1>
             <p class="page-subtitle">Preencha os dados abaixo para registrar a consulta do seu pet em poucos passos.</p>
         </header>
 
@@ -80,8 +83,6 @@
         
         <button type="submit">Agendar</button>
             </form>
-
-            <p class="page-note">Após agendar, você será redirecionado. Para acessar o painel, vá para <a href="/painel">/painel</a>.</p>
         </section>
     </main>
 

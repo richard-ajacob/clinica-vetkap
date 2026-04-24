@@ -7,22 +7,26 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1>Login da Doutora</h1>
-    
-    {% if erro %}
-    <p class="erro">{{ erro }}</p>
-    {% endif %}
+    <main class="centered-page">
+        <section class="page-card centered-card">
+            <h1>Login da Doutora</h1>
 
-    <form action="/login" method="post">
-        <label for="username">Usuário:</label>
-        <input type="text" id="username" name="username" placeholder="Nome de usuário" required>
+            {% if erro %}
+                <p class="error-message">{{ erro }}</p>
+            {% endif %}
 
-        <label for="senha">Senha:</label>
-        <input type="password" id="senha" name="senha" required>
-        
-        <button type="submit">Entrar</button>
-    </form>
-    
-    <p><a href="/">Voltar para agendamento</a></p>
+            <form action="/login" method="post">
+                <label for="username">Usuário:</label>
+                <input type="text" id="username" name="username" placeholder="Nome de usuário" required>
+
+                <label for="senha">Senha:</label>
+                <input type="password" id="senha" name="senha" required>
+
+                <button type="submit">Entrar</button>
+            </form>
+
+            <p class="centered-link-row"><a href="/">Voltar para agendamento</a></p>
+        </section>
+    </main>
 </body>
 </html>
