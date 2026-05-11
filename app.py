@@ -12,6 +12,7 @@ db = SQLAlchemy(app)
 
 INTERVALO_MINUTOS = 40
 PASSO_HORARIOS_MINUTOS = 40
+ANTECEDENCIA_MINUTOS = 10
 JANELAS_ATENDIMENTO = {
     'Bruna Prudêncio': ((8, 30), (13, 50)),
     'Karina Pereira': ((14, 0), (19, 20)),
@@ -55,7 +56,7 @@ def gerar_horarios_disponiveis(doutora, data_consulta, agendamento_id_ignorar=No
     (hora_inicio, minuto_inicio), (hora_fim, minuto_fim) = janela
     inicio_dia = datetime.combine(data_consulta, datetime.min.time()).replace(hour=hora_inicio, minute=minuto_inicio)
     fim_dia = datetime.combine(data_consulta, datetime.min.time()).replace(hour=hora_fim, minute=minuto_fim)
-    agora_limite = datetime.now() + timedelta(minutes=INTERVALO_MINUTOS)
+    agora_limite = datetime.now() + timedelta(minutes=ANTECEDENCIA_MINUTOS)
     duracao_consulta = timedelta(minutes=INTERVALO_MINUTOS)
     passo_horarios = timedelta(minutes=PASSO_HORARIOS_MINUTOS)
 
