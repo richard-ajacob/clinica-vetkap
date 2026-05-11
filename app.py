@@ -13,7 +13,6 @@ db = SQLAlchemy(app)
 INTERVALO_MINUTOS = 40
 PASSO_HORARIOS_MINUTOS = 40
 JANELAS_ATENDIMENTO = {
-    'Samantha Neves': ((8, 30), (13, 50)),
     'Bruna Prudêncio': ((8, 30), (13, 50)),
     'Karina Pereira': ((14, 0), (19, 20)),
     'Sara Thevenard': ((14, 0), (19, 20)),
@@ -162,7 +161,7 @@ def agendar():
     telefone = request.form.get('telefone', '').strip()
     data_str = request.form.get('data', '').strip()
     servico = request.form.get('servico', '').strip()
-    doutora = request.form.get('doutora', 'Samantha Neves').strip()
+    doutora = request.form.get('doutora', 'Bruna Prudêncio').strip()
     motivo = request.form.get('motivo', '').strip()
 
     if not (nome_dono and nome_pet and especie and sexo and telefone and data_str and servico and doutora and motivo):
@@ -502,7 +501,6 @@ if __name__ == '__main__':
         db.session.commit()
 
         usuarios_padrao = [
-            {'username': 'samantha.neves', 'nome': 'Samantha Neves', 'senha': 'vet123', 'role': 'doctor'},
             {'username': 'bruna.prudencio', 'nome': 'Bruna Prudêncio', 'senha': 'vet456', 'role': 'doctor'},
             {'username': 'karina.pereira', 'nome': 'Karina Pereira', 'senha': 'vet789', 'role': 'doctor'},
             {'username': 'sara.thevenard', 'nome': 'Sara Thevenard', 'senha': 'vet101', 'role': 'doctor'},
@@ -510,8 +508,7 @@ if __name__ == '__main__':
         ]
 
         mapeamento_usuarios = {
-            'doutora1': {'username': 'samantha.neves', 'nome': 'Samantha Neves'},
-            'doutora2': {'username': 'bruna.prudencio', 'nome': 'Bruna Prudêncio'},
+            'doutora1': {'username': 'bruna.prudencio', 'nome': 'Bruna Prudêncio'},
             'doutora3': {'username': 'karina.pereira', 'nome': 'Karina Pereira'},
             'doutora4': {'username': 'sara.thevenard', 'nome': 'Sara Thevenard'},
         }
@@ -529,8 +526,7 @@ if __name__ == '__main__':
                 antigo_usuario.nome = novo_dado['nome']
 
         mapeamento_doutoras = {
-            'Doutora 1': 'Samantha Neves',
-            'Doutora 2': 'Bruna Prudêncio',
+            'Doutora 1': 'Bruna Prudêncio',
             'Doutora 3': 'Karina Pereira',
             'Doutora 4': 'Sara Thevenard',
         }
@@ -545,6 +541,12 @@ if __name__ == '__main__':
                 usuario.role = usuario_data['role']
             else:
                 db.session.add(Usuario(**usuario_data))
+
+        # Remove usuários removidos da lista de doutoras
+        samantha = Usuario.query.filter_by(username='samantha.neves').first()
+        if samantha:
+            db.session.delete(samantha)
+
         db.session.commit()
 
         # Verifica coluna doutora na tabela agendamento, adiciona se não existir
