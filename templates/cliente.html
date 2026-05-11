@@ -22,6 +22,7 @@
 
         <section class="page-card">
             <form action="/agendar" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <label for="nome_dono">Nome do Tutor:</label>
         <input type="text" id="nome_dono" name="nome_dono" required>
         

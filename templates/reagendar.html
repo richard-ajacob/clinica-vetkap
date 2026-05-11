@@ -19,6 +19,7 @@
 
         <section class="page-card">
             <form action="{{ url_for('reagendar_salvar', id=agendamento.id) }}" method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <label for="nome_dono">Nome do Tutor:</label>
         <input type="text" id="nome_dono" value="{{ agendamento.nome_dono }}" readonly>
 

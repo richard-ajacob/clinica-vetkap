@@ -1,14 +1,21 @@
+import os
 import re
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+import secrets
+from flask import Flask, abort, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_, inspect, text
 from zoneinfo import ZoneInfo
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agendamentos.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.secret_key = 'chave_secreta_vet'  # Chave secreta para sessões
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('COOKIE_SECURE', '').lower() in ('1', 'true', 'yes') or bool(os.getenv('RENDER'))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 db = SQLAlchemy(app)
 
 INTERVALO_MINUTOS = 40
@@ -31,6 +38,50 @@ except Exception:
 def agora_local():
     # Mantemos datetime sem tzinfo para comparar com os campos salvos no banco.
     return datetime.now(APP_TIMEZONE).replace(tzinfo=None)
+
+
+def senha_esta_com_hash(valor):
+    return bool(valor) and (valor.startswith('scrypt:') or valor.startswith('pbkdf2:'))
+
+
+def verificar_senha(usuario, senha_informada):
+    senha_salva = usuario.senha or ''
+    if senha_esta_com_hash(senha_salva):
+        return check_password_hash(senha_salva, senha_informada)
+    return secrets.compare_digest(senha_salva, senha_informada)
+
+
+def sincronizar_hash_senha(usuario, senha_plana):
+    senha_salva = usuario.senha or ''
+    if senha_esta_com_hash(senha_salva) and check_password_hash(senha_salva, senha_plana):
+        return False
+
+    usuario.senha = generate_password_hash(senha_plana)
+    return True
+
+
+def gerar_csrf_token():
+    token = session.get('_csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['_csrf_token'] = token
+    return token
+
+
+@app.before_request
+def proteger_csrf():
+    if request.method != 'POST':
+        return None
+
+    token_sessao = session.get('_csrf_token')
+    token_recebido = request.form.get('_csrf_token') or request.headers.get('X-CSRFToken')
+    if not token_sessao or not token_recebido or not secrets.compare_digest(token_sessao, token_recebido):
+        abort(400, description='Token CSRF inválido.')
+
+    return None
+
+
+app.jinja_env.globals['csrf_token'] = gerar_csrf_token
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -446,19 +497,22 @@ def login():
     senha = request.form.get('senha', '')
 
     usuario = Usuario.query.filter_by(username=username).first()
-    if usuario and usuario.senha == senha:
+    if usuario and verificar_senha(usuario, senha):
+        if sincronizar_hash_senha(usuario, senha):
+            db.session.commit()
+
+        session.clear()
         session['user'] = usuario.nome
         session['role'] = usuario.role
         session['logged_in'] = True
+        session.permanent = True
         return redirect(url_for('painel'))
 
     return render_template('login.html', erro='Usuário ou senha incorretos')
 
 @app.route('/logout')
 def logout():
-    session.pop('logged_in', None)
-    session.pop('user', None)
-    session.pop('role', None)
+    session.clear()
     return redirect(url_for('index'))
 
 @app.route('/deletar/<int:id>', methods=['POST'])
@@ -493,7 +547,10 @@ def cancelar(id):
     db.session.commit()
     return redirect(url_for('painel'))
 
-if __name__ == '__main__':
+def inicializar_banco():
+    if app.config.get('_DB_INIT_DONE'):
+        return
+
     with app.app_context():
         db.create_all()
 
@@ -551,10 +608,15 @@ if __name__ == '__main__':
             usuario = Usuario.query.filter_by(username=usuario_data['username']).first()
             if usuario:
                 usuario.nome = usuario_data['nome']
-                usuario.senha = usuario_data['senha']
                 usuario.role = usuario_data['role']
+                sincronizar_hash_senha(usuario, usuario_data['senha'])
             else:
-                db.session.add(Usuario(**usuario_data))
+                db.session.add(Usuario(
+                    username=usuario_data['username'],
+                    nome=usuario_data['nome'],
+                    senha=generate_password_hash(usuario_data['senha']),
+                    role=usuario_data['role'],
+                ))
 
         # Remove usuários removidos da lista de doutoras
         samantha = Usuario.query.filter_by(username='samantha.neves').first()
@@ -569,7 +631,7 @@ if __name__ == '__main__':
             columns = [row[1] for row in result]
             if 'doutora' not in columns:
                 try:
-                    conn.execute(db.text("ALTER TABLE agendamento ADD COLUMN doutora VARCHAR(50) DEFAULT 'Samantha Neves'"))
+                    conn.execute(db.text("ALTER TABLE agendamento ADD COLUMN doutora VARCHAR(50) DEFAULT 'Bruna Prudêncio'"))
                     print('Coluna doutora adicionada à tabela agendamento')
                 except Exception as e:
                     print('Falha ao adicionar coluna doutora:', e)
@@ -591,4 +653,16 @@ if __name__ == '__main__':
                     print('Coluna sexo adicionada à tabela agendamento')
                 except Exception as e:
                     print('Falha ao adicionar coluna sexo:', e)
-    app.run(debug=True, host='0.0.0.0', port=5001)
+
+    app.config['_DB_INIT_DONE'] = True
+
+
+inicializar_banco()
+
+
+if __name__ == '__main__':
+    app.run(
+        debug=os.getenv('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes'),
+        host='0.0.0.0',
+        port=5001,
+    )
