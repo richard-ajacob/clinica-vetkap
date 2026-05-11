@@ -1,8 +1,9 @@
 import re
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_, inspect, text
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///agendamentos.db'
@@ -19,6 +20,17 @@ JANELAS_ATENDIMENTO = {
     'Sara Thevenard': ((14, 0), (19, 20)),
 }
 DOUTORAS = list(JANELAS_ATENDIMENTO.keys())
+
+try:
+    APP_TIMEZONE = ZoneInfo('America/Sao_Paulo')
+except Exception:
+    # Fallback sem base de timezone do sistema: UTC-3 fixo (Brasilia).
+    APP_TIMEZONE = timezone(timedelta(hours=-3))
+
+
+def agora_local():
+    # Mantemos datetime sem tzinfo para comparar com os campos salvos no banco.
+    return datetime.now(APP_TIMEZONE).replace(tzinfo=None)
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,7 +68,8 @@ def gerar_horarios_disponiveis(doutora, data_consulta, agendamento_id_ignorar=No
     (hora_inicio, minuto_inicio), (hora_fim, minuto_fim) = janela
     inicio_dia = datetime.combine(data_consulta, datetime.min.time()).replace(hour=hora_inicio, minute=minuto_inicio)
     fim_dia = datetime.combine(data_consulta, datetime.min.time()).replace(hour=hora_fim, minute=minuto_fim)
-    agora_limite = datetime.now() + timedelta(minutes=ANTECEDENCIA_MINUTOS)
+    agora = agora_local()
+    agora_limite = agora + timedelta(minutes=ANTECEDENCIA_MINUTOS)
     duracao_consulta = timedelta(minutes=INTERVALO_MINUTOS)
     passo_horarios = timedelta(minutes=PASSO_HORARIOS_MINUTOS)
 
@@ -76,7 +89,7 @@ def gerar_horarios_disponiveis(doutora, data_consulta, agendamento_id_ignorar=No
     while horario_atual + duracao_consulta <= fim_dia:
         fim_horario = horario_atual + duracao_consulta
 
-        if data_consulta == datetime.now().date() and horario_atual < agora_limite:
+        if data_consulta == agora.date() and horario_atual < agora_limite:
             horario_atual += passo_horarios
             continue
 
